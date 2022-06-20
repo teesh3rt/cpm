@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+from sys import argv
+from os import listdir, rmdir, system, makedirs
+from json import load, dump
+from os.path import exists
+
+cmd = argv[1]
+args = argv[2:]
+
+if cmd == 'init':
+    makedirs(args[0])
+    makedirs(args[0]+'/src')
+    dump({
+        'cflags': "",
+        'packages': []
+    }, open(f'{args[0]}/cpm.json', 'w'))
+    system(f'git init {args[0]} > cmdlogs')
+    system(f'rm -rf cmdlogs')
+    system(f'cd {args[0]}')
+
+if cmd == 'add':
+    pkg = load(open('./cpm.json'))
+    if args[0] not in pkg['packages']:
+        pkg['packages'].append(args[0])
+    dump({
+        'cflags': "",
+        'packages': pkg['packages']
+    }, open(f'./cpm.json', 'w'))
+
+if cmd == 'build':
+    system("rm -rf build > cmdlogs")
+    system("rm cmdlogs")
+    makedirs("build")
+    files = ""
+    pkg = load(open('./cpm.json'))
+    for pkg in pkg['packages']:
+        print(f'-> Cloning {pkg}...')
+        system(f"git clone https://github.com/{pkg} ./pkgs/{pkg.split('/')[1]}")
+
+    if exists("pkgs"):    
+        for pkg in listdir('pkgs'):
+            for file in listdir(f"pkgs/{pkg}/src"):
+                if file.endswith(".c"):
+                    system(f'clang ./pkgs/{pkg}/src/{file} -c -o ./build/{file}.o')
+                    files += "./build/" + file + ".o" + " "
+    
+    for file in listdir('./src'):
+        if file.endswith(".c"):
+            system(f'clang ./src/{file} -c -o ./build/{file}.o')
+    
+    if listdir('./build'):
+        for file in listdir('./build')[:-1]:
+            files += "./build/" + file + " "
+        files += "./build/" + listdir('./build')[-1]
+    
+    system(f"gcc {files} -o out")
